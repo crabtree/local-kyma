@@ -4,7 +4,7 @@ set -o errexit
 SECONDS=0  
 GARDENER=${GARDENER:-false}
 export DOMAIN=${KYMA_DOMAIN:-local.kyma.dev}
-export OVERRIDES=global.isLocalEnv=false,global.ingress.domainName=$DOMAIN,global.environment.gardener=$GARDENER,global.domainName=$DOMAIN,global.tlsCrt=ZHVtbXkK
+export OVERRIDES=global.isLocalEnv=false,global.disableLegacyConnectivity=true,global.ingress.domainName=$DOMAIN,global.environment.gardener=$GARDENER,global.domainName=$DOMAIN,global.tlsCrt=ZHVtbXkK
 # export REGISTRY_VALUES="dockerRegistry.username=$REGISTRY_USER,dockerRegistry.password=$REGISTRY_PASS,dockerRegistry.enableInternal=false,dockerRegistry.serverAddress=ghcr.io,dockerRegistry.registryAddress=ghcr.io/$REGISTRY_USER"       
 if [[ -z $REGISTRY_VALUES ]]; then
   export REGISTRY_VALUES="dockerRegistry.enableInternal=false,dockerRegistry.serverAddress=registry.localhost:5000,dockerRegistry.registryAddress=registry.localhost:5000"
@@ -87,6 +87,13 @@ metadata:
   labels:
     istio-injection: enabled
   name: natss
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    istio-injection: enabled
+  name: compass-system
 EOF
 
 # Wait for nodes to be ready before scheduling any workload
@@ -129,6 +136,8 @@ helm_install event-sources resources/event-sources kyma-system &
 
 helm_install kiali resources/kiali kyma-system --set global.ingress.domainName=$DOMAIN -f resources/kiali/profile-evaluation.yaml &
 helm_install monitoring resources/monitoring kyma-system --set global.ingress.domainName=$DOMAIN -f resources/monitoring/profile-evaluation.yaml &
+
+helm_install compass-runtime-agent resources/compass-runtime-agent compass-system --set global.ingress.domainName=$DOMAIN &
 
 # Create installer deployment scaled to 0 to get console running:
 kubectl apply -f installer-local.yaml &
